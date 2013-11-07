@@ -51,6 +51,8 @@ PORT(
   -- Wishbone
   slave_i                 : in  t_wishbone_slave_in;
   slave_o                 : out t_wishbone_slave_out;
+  
+  srq_active              : out std_logic_vector(11 downto 0);    -- vector of slave service requests
                     
   clk                     : in    std_logic;
   nrst                    : in    std_logic;
@@ -858,7 +860,7 @@ p_intr: PROCESS (clk, s_reset)
     ELSIF rising_edge(clk) THEN
 
       S_SRQ_Sync <= NOT nSCUB_SRQ_Slaves;         -- synchronize and change level of nSCUB_SRQ_Slave signals
-                                -- S_SRQ_Sync(n) = '1' => nSCUB_SRQ_Slaves(n) is active
+                                                  -- S_SRQ_Sync(n) = '1' => nSCUB_SRQ_Slaves(n) is active
       FOR i IN nSCUB_SRQ_Slaves'range LOOP
         IF S_SRQ_Ena(i) = '1' THEN
           IF S_SRQ_Sync(i) = '1' THEN
@@ -958,5 +960,7 @@ S_SCU_Bus_Access_Active   <= '1' WHEN (S_Start_SCUB_Wr = '1') OR (S_Start_SCUB_R
 SCU_Bus_Access_Active     <= S_SCU_Bus_Access_Active;
 
 SCU_Wait_Request          <=  s_stall;
+
+srq_active                <= S_SRQ_Active;
 
 END Arch_SCU_Bus_Master;
