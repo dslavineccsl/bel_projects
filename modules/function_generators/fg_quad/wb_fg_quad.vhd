@@ -31,6 +31,7 @@ entity wb_fg_quad is
         irq_mst_o     : out t_wishbone_master_out);
 end entity;
 
+
 architecture wb_fg_quad_arch of wb_fg_quad is
   signal  fg_dreq:            std_logic_vector(0 downto 0);
 
@@ -91,6 +92,7 @@ begin
         shift_a_reg     <= (others => '0');
         shift_b_reg     <= (others => '0');
         ramp_cnt_reg    <= (others => '0');
+        sw_dst_reg      <= x"00000001";
         wr_brc_start    <= '0';
         wr_coeff_a      <= '0';
         wr_start_value  <= '0';
