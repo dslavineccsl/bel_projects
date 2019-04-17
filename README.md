@@ -4,7 +4,7 @@ bel_projects
 
 
 
-Current PCI/PCIe core architecture :
+Current PCI/PCIe core architecture
 
 
 In current implementation of the kernel module and VHDL the wishbone kernel module acts as EB slave and then through pcie_wb kernel module and FIFO directly accesses XWB in monster.
