@@ -1268,12 +1268,12 @@ begin
 end generate;
 
 
-  vme_n : if not g_en_vme generate
-    top_bus_slave_i (c_topm_vme) <= cc_dummy_master_out;
-    top_msi_master_i(c_topm_vme) <= cc_dummy_slave_out;
-    dev_bus_master_i(c_devs_vme_info) <= cc_dummy_slave_out;
-    vme_addr_data_b <= (others => 'Z');
-  end generate;
+--  vme_n : if not g_en_vme generate
+--    top_bus_slave_i (c_topm_vme) <= cc_dummy_master_out;
+--    top_msi_master_i(c_topm_vme) <= cc_dummy_slave_out;
+--    dev_bus_master_i(c_devs_vme_info) <= cc_dummy_slave_out;
+--    vme_addr_data_b <= (others => 'Z');
+--  end generate;
   vme_y : if g_en_vme generate
 
     U_VME64 : xVME64xCore_Top
