@@ -1274,82 +1274,82 @@ end generate;
 --    dev_bus_master_i(c_devs_vme_info) <= cc_dummy_slave_out;
 --    vme_addr_data_b <= (others => 'Z');
 --  end generate;
-  vme_y : if g_en_vme generate
-
-    U_VME64 : xVME64xCore_Top
-      generic map(
-        g_clock          => 62,
-        g_wb_data_width  => 32,
-        g_wb_addr_width  => 32,
-        g_cram_size      => c_CRAM_SIZE,  -- 1024
-        g_BoardID        => c_VETAR_ID,   -- 0x00000199
-        g_ManufacturerID => c_GSI_ID,     -- 0x080031
-        g_RevisionID     => c_RevisionID, -- 0x1
-        g_ProgramID      => 96,           -- 0x60
-        g_base_addr      => MECHANICALLY,
-        g_sdb_addr       => c_top_sdb_address,
-        g_irq_src        => MSI)
-       port map(
-        clk_i           => clk_sys,
-        rst_n_i         => rstn_sys,
-        vme_as_n_i      => vme_as_n_i,
-        vme_rst_n_i     => vme_rst_n_i,
-        vme_write_n_i   => vme_write_n_i,
-        vme_am_i        => vme_am_i,
-        vme_ds_n_i      => vme_ds_n_i,
-        vme_ga_i        => b"00" & vme_ga_i,
-        vme_berr_o      => s_vme_berr_o,
-        vme_dtack_n_o   => s_vme_dtack_n_o,
-        vme_retry_n_o   => open,
-        vme_lword_n_i   => s_vme_lword_n_i,
-        vme_lword_n_o   => s_vme_lword_n_o,
-        vme_addr_i      => vme_addr_data_b(31 downto 1),
-        vme_addr_o      => s_vme_addr_o,
-        vme_data_i      => vme_addr_data_b,
-        vme_data_o      => s_vme_data_o,
-        vme_irq_o       => vme_irq_n_o,
-        vme_iackin_n_i  => vme_iackin_n_i,
-        vme_iack_n_i    => vme_iack_n_i,
-        vme_iackout_n_o => vme_iackout_n_o,
-        vme_buffer_o    => s_vme_buffer,
-        vme_retry_oe_o  => open,
-        irq_i           => '0',  -- => wbirq_i,
-        int_ack_o       => open, -- => s_int_ack,
-        --reset_o         => open, -- => s_rst,
-        master_o        => top_bus_slave_i (c_topm_vme),
-        master_i        => top_bus_slave_o (c_topm_vme),
-        slave_o         => top_msi_master_i(c_topm_vme),
-        slave_i         => top_msi_master_o(c_topm_vme),
-        info_slave_i    => dev_bus_master_o(c_devs_vme_info),
-        info_slave_o    => dev_bus_master_i(c_devs_vme_info),
-        debug           => open);
-
-    U_BUFFER_CTRL : VME_Buffer_ctrl
-      generic map(
-        g_bus_mode  =>  LATCHED)
-      port map(
-        clk_i            =>  clk_sys,
-        rst_i            =>  vme_rst_n_i,
-        buffer_stat_i    =>  s_vme_buffer,
-        buffer_clk_o     =>  open,
-        data_buff_v2f_o  =>  vme_data_oe_ab_o,
-        data_buff_f2v_o  =>  vme_data_oe_ba_o,
-        addr_buff_v2f_o  =>  vme_addr_oe_ab_o,
-        addr_buff_f2v_o  =>  vme_addr_oe_ba_o,
-        dtack_oe_o       =>  s_vme_dtack_oe_o,
-        latch_buff_o     =>  s_vme_buffer_latch);
-
-    vme_addr_data_b <=
-      s_vme_data_o                     when s_vme_buffer.s_buffer_eo = data_buff and s_vme_buffer.s_datadir = fpga2vme else
-      (s_vme_addr_o & s_vme_lword_n_o) when s_vme_buffer.s_buffer_eo = addr_buff and s_vme_buffer.s_addrdir = fpga2vme else
-      (others => 'Z');
-
-    vme_buffer_latch_o <= (others => s_vme_buffer_latch);
-    s_vme_lword_n_i    <= vme_addr_data_b(0);
-    vme_dtack_oe_o     <= s_vme_dtack_n_o when s_vme_dtack_oe_o = '1' else '1';
-    vme_berr_o         <= not s_vme_berr_o;
-
-  end generate;
+--  vme_y : if g_en_vme generate
+--
+--    U_VME64 : xVME64xCore_Top
+--      generic map(
+--        g_clock          => 62,
+--        g_wb_data_width  => 32,
+--        g_wb_addr_width  => 32,
+--        g_cram_size      => c_CRAM_SIZE,  -- 1024
+--        g_BoardID        => c_VETAR_ID,   -- 0x00000199
+--        g_ManufacturerID => c_GSI_ID,     -- 0x080031
+--        g_RevisionID     => c_RevisionID, -- 0x1
+--        g_ProgramID      => 96,           -- 0x60
+--        g_base_addr      => MECHANICALLY,
+--        g_sdb_addr       => c_top_sdb_address,
+--        g_irq_src        => MSI)
+--       port map(
+--        clk_i           => clk_sys,
+--        rst_n_i         => rstn_sys,
+--        vme_as_n_i      => vme_as_n_i,
+--        vme_rst_n_i     => vme_rst_n_i,
+--        vme_write_n_i   => vme_write_n_i,
+--        vme_am_i        => vme_am_i,
+--        vme_ds_n_i      => vme_ds_n_i,
+--        vme_ga_i        => b"00" & vme_ga_i,
+--        vme_berr_o      => s_vme_berr_o,
+--        vme_dtack_n_o   => s_vme_dtack_n_o,
+--        vme_retry_n_o   => open,
+--        vme_lword_n_i   => s_vme_lword_n_i,
+--        vme_lword_n_o   => s_vme_lword_n_o,
+--        vme_addr_i      => vme_addr_data_b(31 downto 1),
+--        vme_addr_o      => s_vme_addr_o,
+--        vme_data_i      => vme_addr_data_b,
+--        vme_data_o      => s_vme_data_o,
+--        vme_irq_o       => vme_irq_n_o,
+--        vme_iackin_n_i  => vme_iackin_n_i,
+--        vme_iack_n_i    => vme_iack_n_i,
+--        vme_iackout_n_o => vme_iackout_n_o,
+--        vme_buffer_o    => s_vme_buffer,
+--        vme_retry_oe_o  => open,
+--        irq_i           => '0',  -- => wbirq_i,
+--        int_ack_o       => open, -- => s_int_ack,
+--        --reset_o         => open, -- => s_rst,
+--        master_o        => top_bus_slave_i (c_topm_vme),
+--        master_i        => top_bus_slave_o (c_topm_vme),
+--        slave_o         => top_msi_master_i(c_topm_vme),
+--        slave_i         => top_msi_master_o(c_topm_vme),
+--        info_slave_i    => dev_bus_master_o(c_devs_vme_info),
+--        info_slave_o    => dev_bus_master_i(c_devs_vme_info),
+--        debug           => open);
+--
+--    U_BUFFER_CTRL : VME_Buffer_ctrl
+--      generic map(
+--        g_bus_mode  =>  LATCHED)
+--      port map(
+--        clk_i            =>  clk_sys,
+--        rst_i            =>  vme_rst_n_i,
+--        buffer_stat_i    =>  s_vme_buffer,
+--        buffer_clk_o     =>  open,
+--        data_buff_v2f_o  =>  vme_data_oe_ab_o,
+--        data_buff_f2v_o  =>  vme_data_oe_ba_o,
+--        addr_buff_v2f_o  =>  vme_addr_oe_ab_o,
+--        addr_buff_f2v_o  =>  vme_addr_oe_ba_o,
+--        dtack_oe_o       =>  s_vme_dtack_oe_o,
+--        latch_buff_o     =>  s_vme_buffer_latch);
+--
+--    vme_addr_data_b <=
+--      s_vme_data_o                     when s_vme_buffer.s_buffer_eo = data_buff and s_vme_buffer.s_datadir = fpga2vme else
+--      (s_vme_addr_o & s_vme_lword_n_o) when s_vme_buffer.s_buffer_eo = addr_buff and s_vme_buffer.s_addrdir = fpga2vme else
+--      (others => 'Z');
+--
+--    vme_buffer_latch_o <= (others => s_vme_buffer_latch);
+--    s_vme_lword_n_i    <= vme_addr_data_b(0);
+--    vme_dtack_oe_o     <= s_vme_dtack_n_o when s_vme_dtack_oe_o = '1' else '1';
+--    vme_berr_o         <= not s_vme_berr_o;
+--
+--  end generate;
 
   top_msi_master_i(c_topm_usb) <= cc_dummy_slave_out; -- USB does not accept MSI !!!
   usb_n : if not g_en_usb generate
