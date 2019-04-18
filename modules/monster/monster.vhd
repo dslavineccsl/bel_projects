@@ -367,7 +367,7 @@ architecture rtl of monster is
   constant c_topm_ebs       : natural := 0;
   constant c_topm_eca_wbm   : natural := 1;
   constant c_topm_pcie      : natural := 2;
-  constant c_topm_vme       : natural := 3;
+  constant c_topm_pcie_eb   : natural := 3;  
   constant c_topm_pmc       : natural := 4;
   constant c_topm_usb       : natural := 5;
   constant c_topm_prioq     : natural := 6;
@@ -377,7 +377,7 @@ architecture rtl of monster is
    (c_topm_ebs     => f_sdb_auto_msi(c_ebs_msi,     false),   -- Need to add MSI support !!!
     c_topm_eca_wbm => f_sdb_auto_msi(c_null_msi,    false),   -- no MSIs for ECA=>WB macro player
     c_topm_pcie    => f_sdb_auto_msi(c_pcie_msi,    g_en_pcie),
-    c_topm_vme     => f_sdb_auto_msi(c_vme_msi,     g_en_vme),
+    c_topm_pcie_eb => f_sdb_auto_msi(c_pcie_eb_msi, g_en_pcie),    
     c_topm_pmc     => f_sdb_auto_msi(c_pmc_msi,     g_en_pmc),
     c_topm_usb     => f_sdb_auto_msi(c_usb_msi,     false), -- Need to add MSI support !!!
     c_topm_prioq   => f_sdb_auto_msi(c_null_msi,    false));
@@ -798,6 +798,33 @@ architecture rtl of monster is
     return result;
   end f_lvds_array_to_trigger_array;
 
+
+
+
+
+  -- debug signals
+  signal pcie_phy_cyc 		: std_logic;
+  signal pcie_eb_slv_cyc    : std_logic;
+  
+  
+  
+  signal r_trc_monster : unsigned(23 downto 0);
+  
+  
+  signal issp_source : std_logic_vector(63 downto 0);
+  signal issp_probe  : std_logic_vector(63 downto 0);   
+  
+    component issp_64i_64o is
+        port (
+            source     : out std_logic_vector(63 downto 0);                    -- source
+            probe      : in  std_logic_vector(63 downto 0) := (others => 'X'); -- probe
+            source_clk : in  std_logic                     := 'X'              -- clk
+        );
+    end component issp_64i_64o;  
+
+
+
+
 begin
 
   ----------------------------------------------------------------------------------
@@ -1145,7 +1172,7 @@ begin
     top_msi_master_i(c_topm_pcie) <= cc_dummy_slave_out;
   end generate;
   pcie_y : if g_en_pcie generate
-    pcie : pcie_wb
+    pcie : pcie_wb_eb
       generic map(
         g_family => g_family,
         sdb_addr => c_top_sdb_address)
@@ -1163,7 +1190,18 @@ begin
         slave_clk_i   => clk_sys,
         slave_rstn_i  => rstn_sys,
         slave_i       => top_msi_master_o(c_topm_pcie),
-        slave_o       => top_msi_master_i(c_topm_pcie));
+        slave_o       => top_msi_master_i(c_topm_pcie),
+
+        -- c_topm_pcie_eb
+        eb_slv_master_clk_i  => clk_sys,
+        eb_slv_master_rstn_i => rstn_sys,
+        eb_slv_master_o      => top_bus_slave_i (c_topm_pcie_eb),
+        eb_slv_master_i      => top_bus_slave_o (c_topm_pcie_eb),
+        
+        r_cyc_o       => pcie_phy_cyc,
+        r_cyc_eb_o    => pcie_eb_slv_cyc
+        
+        );
   end generate;
 
   pmc_n : if not g_en_pmc generate
@@ -2346,5 +2384,111 @@ end generate;
 
   -- END OF Wishbone slaves
   ----------------------------------------------------------------------------------
+
+
+
+
+  -- aux counter for time reference in SignalTap when using conditional storage
+  -- option to enable triggers for reseting it, otherwise it just counts up
+  p_trc_xwb: process(clk_sys)
+    
+    variable r_cyc_dly_usb_phy  : std_logic;
+    variable r_cyc_dly_usb      : std_logic;
+    variable r_stb_dly_usb      : std_logic;
+    
+    variable r_cyc_dly_pcie_phy : std_logic;
+    variable r_cyc_dly_pcie     : std_logic;
+    variable r_stb_dly_pcie     : std_logic;
+
+    variable r_cyc_dly_eth_phy  : std_logic;
+    variable r_cyc_dly_eth      : std_logic;
+    variable r_stb_dly_eth      : std_logic;
+
+    variable r_cyc_dly_pcie_eb_phy : std_logic;
+    variable r_cyc_dly_pcie_eb     : std_logic;
+    variable r_stb_dly_pcie_eb     : std_logic;
+    
+    
+  begin
+    if rising_edge(clk_sys) then
+        -- enable time reference counter reset by issp
+        -- reset counter when WB cycle is raised or STB asserted or both
+        if 
+           ((issp_source( 0) = '1' and usb_ebcyc_i                      = '1' and r_cyc_dly_usb_phy = '0') or 
+            (issp_source( 1) = '1' and top_bus_slave_i(c_topm_usb).cyc  = '1' and r_cyc_dly_usb     = '0') or 
+            (issp_source( 2) = '1' and top_bus_slave_i(c_topm_usb).stb  = '1' and r_stb_dly_usb     = '0') 
+           ) or
+           ((issp_source( 4) = '1' and pcie_phy_cyc                     = '1' and r_cyc_dly_pcie_phy= '0') or 
+            (issp_source( 5) = '1' and top_bus_slave_i(c_topm_pcie).cyc = '1' and r_cyc_dly_pcie    = '0') or 
+            (issp_source( 6) = '1' and top_bus_slave_i(c_topm_pcie).stb = '1' and r_stb_dly_pcie    = '0')
+           ) or
+           ((issp_source( 8) = '1' and eb_snk_in.cyc                    = '1' and r_cyc_dly_eth_phy = '0') or 
+            (issp_source( 9) = '1' and top_bus_slave_i(c_topm_ebs).cyc  = '1' and r_cyc_dly_eth     = '0') or 
+            (issp_source(10) = '1' and top_bus_slave_i(c_topm_ebs).stb  = '1' and r_stb_dly_eth     = '0')
+           ) or
+           ((issp_source(12) = '1' and pcie_eb_slv_cyc                     = '1' and r_cyc_dly_pcie_eb_phy = '0') or 
+            (issp_source(13) = '1' and top_bus_slave_i(c_topm_pcie_eb).cyc = '1' and r_cyc_dly_pcie_eb     = '0') or 
+            (issp_source(14) = '1' and top_bus_slave_i(c_topm_pcie_eb).stb = '1' and r_stb_dly_pcie_eb     = '0')
+           )
+        then
+            r_trc_monster <= (others => '0');
+        else
+            r_trc_monster <= r_trc_monster + 1;
+        end if;
+
+        -- delay line for edge detection
+        r_cyc_dly_usb_phy  := usb_ebcyc_i;
+        r_cyc_dly_usb      := top_bus_slave_i(c_topm_usb).cyc;
+        r_stb_dly_usb      := top_bus_slave_i(c_topm_usb).stb;
+
+   
+        r_cyc_dly_pcie_phy := pcie_phy_cyc;
+        r_cyc_dly_pcie     := top_bus_slave_i(c_topm_pcie).cyc;
+        r_stb_dly_pcie     := top_bus_slave_i(c_topm_pcie).stb;
+
+        r_cyc_dly_eth_phy  := eb_snk_in.cyc;
+        r_cyc_dly_eth      := top_bus_slave_i(c_topm_ebs).cyc;
+        r_stb_dly_eth      := top_bus_slave_i(c_topm_ebs).stb;
+
+        r_cyc_dly_pcie_eb_phy := pcie_eb_slv_cyc;
+        r_cyc_dly_pcie_eb     := top_bus_slave_i(c_topm_pcie_eb).cyc;
+        r_stb_dly_pcie_eb     := top_bus_slave_i(c_topm_pcie_eb).stb;
+
+    end if;
+  end process;  
+
+
+  issp_probe(0) <= '1' when r_trc_monster = x"000000" else '0';
+  
+    -- aux counter for conditional storage in SignalTap
+    p_skip_storage: process(clk_sys)
+        variable r_storage_tick_counter : unsigned(15 downto 0);
+        variable storage_tick : std_logic;
+    begin
+        if rising_edge(clk_sys) then
+            if storage_tick = '1' then
+                r_storage_tick_counter := (others => '0');
+            else
+                r_storage_tick_counter := r_storage_tick_counter + 1;
+            end if;
+            
+            if r_storage_tick_counter >= unsigned(issp_source(63 downto 48)) then
+                storage_tick := '1';
+            else
+                storage_tick := '0';
+            end if;
+        end if; -- clk
+        
+        issp_probe(1) <= storage_tick;
+    end process;
+  
+  -- In-Syster source and probe   
+  issp_monster : issp_64i_64o
+    port map (
+      source     => issp_source, -- sources.source
+      probe      => issp_probe , -- probes.probe
+      source_clk => clk_sys      -- source_clk.clk
+    );
+
 
 end rtl;
