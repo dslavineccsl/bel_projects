@@ -13,7 +13,6 @@ syn
 *.o
 *.ko
 *.lib
-*.stp
 *.asm
 *.ihx
 *.lk
