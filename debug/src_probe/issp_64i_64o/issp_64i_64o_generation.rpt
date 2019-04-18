@@ -1,0 +1,15 @@
+Info: Starting: Create HDL design files for synthesis
+Info: qsys-generate /home/ftrn/Desktop/gsi/dd_perf_test/bp_dd_pcie_perf/debug/src_probe/issp_64i_64o.qsys --synthesis=VHDL --output-directory=/home/ftrn/Desktop/gsi/dd_perf_test/bp_dd_pcie_perf/debug/src_probe/issp_64i_64o/synthesis --family="Arria V" --part=5AGXMA3D4F27I3
+Progress: Loading src_probe/issp_64i_64o.qsys
+Progress: Reading input file
+Progress: Adding in_system_sources_probes_0 [altera_in_system_sources_probes 17.0]
+Progress: Parameterizing module in_system_sources_probes_0
+Progress: Building connections
+Progress: Parameterizing connections
+Progress: Validating
+Progress: Done reading input file
+Info: issp_64i_64o: Generating issp_64i_64o "issp_64i_64o" for QUARTUS_SYNTH
+Info: in_system_sources_probes_0: "issp_64i_64o" instantiated altera_in_system_sources_probes "in_system_sources_probes_0"
+Info: issp_64i_64o: Done "issp_64i_64o" with 2 modules, 2 files
+Info: qsys-generate succeeded.
+Info: Finished: Create HDL design files for synthesis
