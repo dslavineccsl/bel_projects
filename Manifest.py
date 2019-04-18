@@ -2,7 +2,8 @@ fetchto = "ip_cores"
 
 modules = {
   "local" : [
-    "modules"
+    "modules",
+    "debug"
   ],
   "git" : [
     "git://github.com/dslavineccsl/general-cores.git",
