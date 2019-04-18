@@ -11,8 +11,6 @@ syn_project = "pci_control"
 
 quartus_preflow = "pci_control.tcl"
 
-files = { "local" : [ "stp4_usb_pcie_pcieb_xwb_master.stp" ]},
-
 modules = {
   "local" : [
     "../../../top/gsi_pexarria5/control",
