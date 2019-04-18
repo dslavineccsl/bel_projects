@@ -5,12 +5,12 @@ modules = {
     "modules"
   ],
   "git" : [
-    "git://ohwr.org/hdl-core-lib/general-cores.git",
-    "git://ohwr.org/hdl-core-lib/etherbone-core.git",
-    "git://ohwr.org/hdl-core-lib/pci-core.git",
+    "git://github.com/dslavineccsl/general-cores.git",
+    "git://github.com/dslavineccsl/etherbone-core.git",
+    "git://github.com/dslavineccsl/pci-core.git",
     "git://ohwr.org/hdl-core-lib/wr-cores.git"
   ],
   "gitsm" : [
-    "git://ohwr.org/hdl-core-lib/fpga-config-space.git"
+    "git://github.com/dslavineccsl/fpga-config-space.git"
   ]
 }
