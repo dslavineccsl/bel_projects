@@ -2,9 +2,31 @@ bel_projects
 ============
 
 
+Term "EB cycle" is reffering to cycle line on the EB_RX port of the eb_slave_top module that is controlled by host/remote interface (USB, PCI/PCIe, Eth).
+Term "XWB cycle" is reffering to cylce line on the WB master port of the eb_slave_top module that is connected to XWB top crossbar.
+
+Use branch wb_pcie_mod.
+
+To use SignalTap follow this flow:
+- checkout wb_pcie_mod branch
+- start VHDL build by "make pexarria5" to generate files and regenarate cores
+- when synthesis starts, stop build in the console
+- open Quartus GUI and open project /syn/gsi_pexarria5/control/pci_control.qsf
+- in the menu "Assignments>Settings>SignalTap II Logic Analyzer" check out "Enableadd SignalTap II Logic Analyzer"
+- in select box "SignalTap II File Name" select "stp4_usb_pcie_pcieb_xwb_master.stp"
+- start "Compile" in GUI
+- when build finshes, open SignalTap and load FPGA 
+
+SignalTap has two logic analyzers:
+- auto_signaltap_xwb_masters with XWB masters (USB, PCIe, EB PCIe), uses XWB clock
+- auto_signaltap_eb_pci_slave with eb_pcie_slave signals on PCI and XWB side, runs on internal PCI clock
+
+Each has added counter for time reference when conditional storage is used and only signal transitions are recorded.
+
 
 
 Current PCI/PCIe core architecture
+==================================
 
 
 In current implementation of the kernel module and VHDL the wishbone kernel module acts as EB slave and then through pcie_wb kernel module and FIFO directly accesses XWB in monster.
@@ -13,13 +35,23 @@ Here WB kernel module works as EB slave where:
  - when Etherbone/SW writes EB header, the kernel module itself responds back to Etherbone layer/SW with EB header response. Here there is no PCI bus transaction and no XWB transactions yet
  - when Etherbone/SW writes EB records, the kernel module unpacks EB records and opens XWB cycle for each EB record and executes XWB writes/reads inside EB record and then closes XWB cycle
 
+Advantage:
+- less PCI traffic, due to not writing EB header and EB record headers to FPGA 
+- read/write address words and data words from EB packet are consumed as single PCI operation
+
 Drawbacks:
  - XWB cycle line is controlled by wishbone kernel module via register in PCI configuration space registers. If SW or OS gets stuck and XWB cycle was opened by WB kernel module then XWB is blocked for access via USB or Ethernet.
  - XWB cycle is opened and closed for each EB record by WB kernel module. If there are many EB records in the packet then XWB cycle opening/closing introduces a lot of overhead since it is not deterministic or the time between opening of the cycle and actual XWB write/read can vary in time.
+- if XWB address bits 32:16 in ther current XWB read/write are different from previous XWB read/write then additional PCI write needs to be done to update XWB address bit31:16 register (). 
+
+
+To solve stuck opened XWB cycle a timeout counter is added that closes XWB cycle if wisbone kernel module did not close it. By defalut it is set to 0xFFFFFFF0 in VHDL. It can be set to some other value when pcie_wb kernel module is loaded (insmod pcie_wb cyctout=0xNNNNNNNN) or with write to CYCLE_TIMEOUT_CONTROL register (0x24) by using pcimem.
+Register CYCLE_TIMEOUT_MAX (0x28) holds maximum lenght of XWB cycle since register reset. 
 
  
 Modified architecture
- 
+=====================
+
 FPGA/VHDL modification
  
 New eb_pci_slave module is implemented and is placed between PCIe/PCI core WB master port and XWB crossbar. This module uses same EB slave module (eb_slave_top [1]) as it is used in USB [2] and Ethernet [3] slave cores. It works as EB slave on the USB/Ethernet/PCI side (connected to WB master on the PCIe/PCI core) and as master on XWB side (connected to XWB top crossbar as master). Because eb_slave_top works on XWB clock it needs clock domain crossing to PCI/PCIe clock domain which is done with FIFOs and some glue logic.
@@ -35,6 +67,8 @@ Since eb_slave_top module expects EB packet during EB cycle on its RX port this 
   
 Main difference in the kernel module is now in the "etherbone_master_process" function where EB packet content is not analyzed anymore, but it is just passed to EB slave via PCI kernel module where in eb_pci_slave is written into RX_FIFO_DATA fifo and then response is read back from eb_pci_slave from TX_FIFO_DATA fifo. First the EB packet header (first 8 bytes) is written to eb_pci_slave and then response is read back from eb_pci_slave and passed back to SW. Then the EB records are written to eb_pci_slave and response is read back from eb_pci_slave and passed back to Etherbone/SW.
 
+Drawback here is that there is more PCI traffic needed since whole EB packet needs to be transferred via PCI to the eb_slave_top and response read back.  
+
 
 PCI kernel module modification
 
@@ -44,11 +78,11 @@ New module parameter "cyctout" is added which sets default cycle timeout for "cl
 
 Testing and debugging
 
-Initial plan was to connect eb_pci_slave to separate BAR (BAR2) and keep existing functionality on BAR0, BAR1 and then create another XWB master port on pcie_wb. This way old and new functionality can be compared in the same FPGA design.
+Initial plan was to connect eb_pci_slave to separate BAR (BAR2) and keep existing functionality on BAR0, BAR1 and then create another XWB master port on pcie_wb. This way old and new functionality can be compared in the same FPGA design to measure performance.
 When testing there were issues with PCIe IP core where it looked like bar_hit signal from PCIe core did not work as expected when there were more that two BARs. After several tries of various BAR configurations without success I just mapped eb_pci_slave to address range in the BAR0 by increasing BAR0 address space from 7 to 8 bits and using address bit7 to select current configuration space registers (bit7=0) or eb_pci_slave. 
 
 In the kernel module etherbone_master_process function is duplicated as etherbone_master_process_ebs and is then modified to talk to eb_pci_slave in the FPGA.
-Kernel module parameter selebslv in the wishbone.c kernel module is used to switch between old and new functionality. Switching can be done without reloading kernel module by 
+Kernel module parameter "selebslv" in the wishbone.c kernel module is used to switch between old and new functionality. Switching can be done without reloading kernel module by 
 
 echo 1 > /sys/module/wishbone/parameters/selebslv
 
@@ -126,6 +160,15 @@ Close XWB cycle
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0x40000000
 Written 0x40000000; readback 0x       0
  
+
+
+To check functionality of the eb_pci_slave complete EB packet needs to be written to FPGA. For that use scripts in folder
+
+./debug/scripts
+
+
+To use SignalTap, 
+
   
   
   
