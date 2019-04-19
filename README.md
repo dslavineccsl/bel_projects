@@ -77,12 +77,13 @@ New module parameter "cyctout" is added which sets default cycle timeout for "cl
 
 
 Testing and debugging
+=====================
 
 Initial plan was to connect eb_pci_slave to separate BAR (BAR2) and keep existing functionality on BAR0, BAR1 and then create another XWB master port on pcie_wb. This way old and new functionality can be compared in the same FPGA design to measure performance.
-When testing there were issues with PCIe IP core where it looked like bar_hit signal from PCIe core did not work as expected when there were more that two BARs. After several tries of various BAR configurations without success I just mapped eb_pci_slave to address range in the BAR0 by increasing BAR0 address space from 7 to 8 bits and using address bit7 to select current configuration space registers (bit7=0) or eb_pci_slave. 
+When testing there were issues with PCIe IP core where it looked like bar_hit signal from PCIe core did not work as expected when there were more that two BARs. After several tries of various BAR configurations without success I just mapped eb_pci_slave to address range in the BAR0 by increasing BAR0 address space from 7 to 8 bits and using address bit7 to select current configuration space registers (bit7=0) or eb_pci_slave (bit7=1). 
 
 In the kernel module etherbone_master_process function is duplicated as etherbone_master_process_ebs and is then modified to talk to eb_pci_slave in the FPGA.
-Kernel module parameter "selebslv" in the wishbone.c kernel module is used to switch between old and new functionality. Switching can be done without reloading kernel module by 
+Kernel module parameter "selebslv" in the wishbone.c kernel module is used to switch between old and new functionality. Switching can be done without reloading kernel module (but Safltib must not run!) by 
 
 echo 1 > /sys/module/wishbone/parameters/selebslv
 
@@ -132,6 +133,9 @@ If it is not (bit1 is 0) then enable it by
 [root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
 0002
 
+
+Example of accessing XWB via current PCI/BAR1
+
 Write XWB address bits 31:16 to WINDOW_OFFSET_LOW register (pcie_wb kernel module does this)
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x14 w 0x04060000
 Written 0x 4060000; readback 0x 4060000
@@ -167,7 +171,8 @@ To check functionality of the eb_pci_slave complete EB packet needs to be writte
 ./debug/scripts
 
 
-To use SignalTap, 
+
+This far eb_pcie_slave and wisbone kernel mod was tested only with eb-read and eb-write. Next is to test it with with all eb-tools and Saftlib.
 
   
   
