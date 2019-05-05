@@ -4,7 +4,7 @@ Terms used:
 * EB cycle - reffering to cycle line on the EB_RX port of the eb_slave_top module that is controlled by host/remote interface (USB, PCI/PCIe, Eth).
 * XWB cycle - reffering to cylce line on the WB master port of the eb_slave_top module that is connected to XWB top crossbar.
 
-Use branch ** wb_pcie_mod.
+Use branch wb_pcie_mod.
 
 To use SignalTap follow this flow:
 - checkout wb_pcie_mod branch
@@ -52,7 +52,7 @@ Register CYCLE_TIMEOUT_MAX (0x28) holds maximum lenght of XWB cycle since regist
 
 ## FPGA/VHDL modification
  
-New eb_pci_slave module is implemented and is placed between PCIe/PCI core WB master port and XWB crossbar. This module uses same EB slave module [eb_slave_top](https://www.ohwr.org/project/etherbone-core/master/hdl/eb_slave_core/eb_slave_top.vhd) as it is used in USB [eb_usb:eb_raw_slave:eb_slave_top](https://www.ohwr.org/project/etherbone-core/master/hdl/eb_usb_core/ez_usb.vhd) and Ethernet [eb_ethernet_slave:eb_slave_top](https://www.ohwr.org/project/etherbone-core/master/hdl/eb_master_core/eb_master_slave_wrapper.vhd) 
+New eb_pci_slave module is implemented and is placed between PCIe/PCI core WB master port and XWB crossbar. This module uses same EB slave module [eb_slave_top](https://github.com/dslavineccsl/etherbone-core/blob/wb_pcie_mod/hdl/eb_slave_core/eb_slave_top.vhd) as it is used in USB [eb_usb:eb_raw_slave:eb_slave_top](https://github.com/dslavineccsl/etherbone-core/blob/wb_pcie_mod/hdl/eb_usb_core/ez_usb.vhd) and Ethernet [eb_ethernet_slave:eb_slave_top](https://github.com/dslavineccsl/etherbone-core/blob/wb_pcie_mod/hdl/eb_master_core/eb_master_slave_wrapper.vhd) 
  slave cores (see also comparison [diagram](./diagrams/FTRN_EB_slaves_compare.PNG)). It works as EB slave on the USB/Ethernet/PCI side (connected to WB master on the PCIe/PCI core) and as master on XWB side (connected to XWB top crossbar as master). Because eb_slave_top works on XWB clock it needs clock domain crossing to PCI/PCIe clock domain which is done with FIFOs and some glue logic.
 
 Cycle signal on EB RX port of the eb_slave_top module is driven by register in the configuration space of the eb_pci_slave. Also a timeout counter for clearing EB cycle is implemented in case Etherbone/SW would not close EB cycle. Timeout counter is reset when there is activity between PCI and EB slave or when it exceeds predefined maximum set in the configuration register of the eb_pci_slave.
