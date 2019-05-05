@@ -1,11 +1,10 @@
-bel_projects
-============
+# bel_projects clone for testing modified pcie core and wisbone kernel module
 
+Terms used:
+* EB cycle - reffering to cycle line on the EB_RX port of the eb_slave_top module that is controlled by host/remote interface (USB, PCI/PCIe, Eth).
+* XWB cycle - reffering to cylce line on the WB master port of the eb_slave_top module that is connected to XWB top crossbar.
 
-Term "EB cycle" is reffering to cycle line on the EB_RX port of the eb_slave_top module that is controlled by host/remote interface (USB, PCI/PCIe, Eth).
-Term "XWB cycle" is reffering to cylce line on the WB master port of the eb_slave_top module that is connected to XWB top crossbar.
-
-Use branch wb_pcie_mod.
+Use branch ** wb_pcie_mod.
 
 To use SignalTap follow this flow:
 - checkout wb_pcie_mod branch
@@ -25,8 +24,7 @@ Each has added counter for time reference when conditional storage is used and o
 
 
 
-Current PCI/PCIe core architecture
-==================================
+# Current PCI/PCIe core architecture
 
 
 In current implementation of the kernel module and VHDL the wishbone kernel module acts as EB slave and then through pcie_wb kernel module and FIFO directly accesses XWB in monster.
@@ -42,26 +40,27 @@ Advantage:
 Drawbacks:
  - XWB cycle line is controlled by wishbone kernel module via register in PCI configuration space registers. If SW or OS gets stuck and XWB cycle was opened by WB kernel module then XWB is blocked for access via USB or Ethernet.
  - XWB cycle is opened and closed for each EB record by WB kernel module. If there are many EB records in the packet then XWB cycle opening/closing introduces a lot of overhead since it is not deterministic or the time between opening of the cycle and actual XWB write/read can vary in time.
-- if XWB address bits 32:16 in ther current XWB read/write are different from previous XWB read/write then additional PCI write needs to be done to update XWB address bit31:16 register (). 
+- if XWB address bits 31:16 in ther current XWB read/write are different from previous XWB read/write then additional PCI write needs to be done to update XWB address bit31:16 of the WINDOW_OFFSET_LOW register. 
 
 
 To solve stuck opened XWB cycle a timeout counter is added that closes XWB cycle if wisbone kernel module did not close it. By defalut it is set to 0xFFFFFFF0 in VHDL. It can be set to some other value when pcie_wb kernel module is loaded (insmod pcie_wb cyctout=0xNNNNNNNN) or with write to CYCLE_TIMEOUT_CONTROL register (0x24) by using pcimem.
 Register CYCLE_TIMEOUT_MAX (0x28) holds maximum lenght of XWB cycle since register reset. 
 
  
-Modified architecture
-=====================
+# Modified architecture
 
-FPGA/VHDL modification
+
+## FPGA/VHDL modification
  
-New eb_pci_slave module is implemented and is placed between PCIe/PCI core WB master port and XWB crossbar. This module uses same EB slave module (eb_slave_top [1]) as it is used in USB [2] and Ethernet [3] slave cores. It works as EB slave on the USB/Ethernet/PCI side (connected to WB master on the PCIe/PCI core) and as master on XWB side (connected to XWB top crossbar as master). Because eb_slave_top works on XWB clock it needs clock domain crossing to PCI/PCIe clock domain which is done with FIFOs and some glue logic.
+New eb_pci_slave module is implemented and is placed between PCIe/PCI core WB master port and XWB crossbar. This module uses same EB slave module [eb_slave_top](https://www.ohwr.org/project/etherbone-core/blob/master/hdl/eb_slave_core/eb_slave_top.vhd) as it is used in USB [eb_usb:eb_raw_slave:eb_slave_top](https://www.ohwr.org/project/etherbone-core/blob/master/hdl/eb_usb_core/ez_usb.vhd) and Ethernet [eb_ethernet_slave:eb_slave_top](https://www.ohwr.org/project/etherbone-core/blob/master/hdl/eb_master_core/eb_master_slave_wrapper.vhd) 
+ slave cores (see also comparison [diagram](./diagrams/FTRN_EB_slaves_compare.PNG)). It works as EB slave on the USB/Ethernet/PCI side (connected to WB master on the PCIe/PCI core) and as master on XWB side (connected to XWB top crossbar as master). Because eb_slave_top works on XWB clock it needs clock domain crossing to PCI/PCIe clock domain which is done with FIFOs and some glue logic.
 
 Cycle signal on EB RX port of the eb_slave_top module is driven by register in the configuration space of the eb_pci_slave. Also a timeout counter for clearing EB cycle is implemented in case Etherbone/SW would not close EB cycle. Timeout counter is reset when there is activity between PCI and EB slave or when it exceeds predefined maximum set in the configuration register of the eb_pci_slave.
 
 Existing registers and FIFO in PCI module configuration space related to MSI functionality are kept as they are.
    
 
-Wishbone kernel module modification
+## Wishbone kernel module modification
  
 Since eb_slave_top module expects EB packet during EB cycle on its RX port this means that EB cycle line on RX port needs to be driven by someone. This is now implemented in same way as in USB kernel module. When Etherbone/SW calls wishbone open function then WB kernel module opens EB cycle by writing 0xC0000000 to eb_pci_slave CFG_REG_CYCLE register. When Etherbone/SW releases connection then WB kernel module closes EB cycle by writing 0x400000000 to CFG_REG_CYCLE register.
   
@@ -70,14 +69,13 @@ Main difference in the kernel module is now in the "etherbone_master_process" fu
 Drawback here is that there is more PCI traffic needed since whole EB packet needs to be transferred via PCI to the eb_slave_top and response read back.  
 
 
-PCI kernel module modification
+## PCI kernel module modification
 
 New module parameter "cyctout" is added which sets default cycle timeout for "classic" XWB access via BAR1 and also EB cycle timeout for eb_pci_slave.
 
 
 
-Testing and debugging
-=====================
+# Testing and debugging
 
 Initial plan was to connect eb_pci_slave to separate BAR (BAR2) and keep existing functionality on BAR0, BAR1 and then create another XWB master port on pcie_wb. This way old and new functionality can be compared in the same FPGA design to measure performance.
 When testing there were issues with PCIe IP core where it looked like bar_hit signal from PCIe core did not work as expected when there were more that two BARs. After several tries of various BAR configurations without success I just mapped eb_pci_slave to address range in the BAR0 by increasing BAR0 address space from 7 to 8 bits and using address bit7 to select current configuration space registers (bit7=0) or eb_pci_slave (bit7=1). 
@@ -85,100 +83,139 @@ When testing there were issues with PCIe IP core where it looked like bar_hit si
 In the kernel module etherbone_master_process function is duplicated as etherbone_master_process_ebs and is then modified to talk to eb_pci_slave in the FPGA.
 Kernel module parameter "selebslv" in the wishbone.c kernel module is used to switch between old and new functionality. Switching can be done without reloading kernel module (but Safltib must not run!) by 
 
+```
 echo 1 > /sys/module/wishbone/parameters/selebslv
+```
 
 to select access to XWB via new eb_pci_slave or 
 
+```
 echo 0 > /sys/module/wishbone/parameters/selebslv
+```
 
 to select access to XWB via previous direct access via BAR1.
 
 
-For testing of the VHDL functionality independently of the kernel module and SW, pcimem was used in combination with setpci to enable Memory Space access. 
+For testing of the VHDL functionality independently of the kernel module and SW, [pcimem](https://github.com/billfarrow/pcimem) was used in combination with setpci to enable Memory Space access. 
 
+Check the FTRN PCI address (in this case FTRN PCI bus address is 02:00)
 
-
-
-check if FTRN PCI is enabled for PCI Memory Space access
-[root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
-0000
-
-If it is not (bit1 is 0) then enable it by
-[root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND=0002
-[root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
-0002
-
-Now pcimem can be used to do reads and writes to XWB
-
-example for reading and writing : open XWB cycle to make XWB reads or writes via classic XWB access
-pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0xC0000000
-  
-then make read from LM32-USER-RAM
-  
+```
 [root@ftrn-test-box pcie-wb]# lspci | grep CERN
 02:00.0 Class 6800: CERN/ECP/EDU Device 019a (rev 01)
+```
 
-Optionally: remove card from PCI bus if new FPGA image will be loaded to FPGA  
-[root@ftrn-test-box pcie-wb]# echo 1 > /sys/bus/pci/devices/0000\:02\:00.0/remove
+Check if FTRN PCI is enabled for PCI Memory Space access 
 
-Optionally: Load new FPGA image then rescan the bus
-[root@ftrn-test-box pcie-wb]# echo 1 > /sys/bus/pci/rescan
-
-Check if PCI core in FPGA is enabled for Memory Space access
+```
 [root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
 0000
+```
 
-If it is not (bit1 is 0) then enable it by
+If it is not (bit1 is 0) then enable it by:
+
+```
 [root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND=0002
 [root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
 0002
+```
+
+Optionally: remove card from PCI bus if new FPGA image will be loaded to FPGA  
+
+```
+[root@ftrn-test-box pcie-wb]# echo 1 > /sys/bus/pci/devices/0000\:02\:00.0/remove
+```
+
+Optionally: Load new FPGA image then rescan the bus
+
+```
+[root@ftrn-test-box pcie-wb]# echo 1 > /sys/bus/pci/rescan
+```
+
+Check if PCI core in FPGA is enabled for Memory Space access
+
+```
+[root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
+0000
+```
+
+If it is not (bit1 is 0) then enable it by
+
+```
+[root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND=0002
+[root@ftrn-test-box pcie-wb]# setpci -s 02:00 COMMAND
+0002
+```
+
+Now pcimem can be used to do reads and writes to XWB.
 
 
-Example of accessing XWB via current PCI/BAR1
+## Example of accessing XWB via current PCI/BAR1
 
-Write XWB address bits 31:16 to WINDOW_OFFSET_LOW register (pcie_wb kernel module does this)
+
+### Example for reading and writing  
+
+open XWB cycle to make XWB reads or writes via classic XWB access
+
+```
+pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0xC0000000
+```  
+
+To make read from LM32-USER-RAM (on WB address 0x04060000) first write XWB address bits 31:16 to WINDOW_OFFSET_LOW register (pcie_wb kernel module does this)
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x14 w 0x04060000
 Written 0x 4060000; readback 0x 4060000
+```
 
 Open XWB cycle
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0xC0000000
 Written 0xC0000000; readback 0x80000000
+```
 
 Read first address of LM32-USER-RAM
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource1 0x0 w
 Value at offset 0x0 : 0x90C00000
+```
 
 Close XWB cycle
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0x40000000
 Written 0x40000000; readback 0x       0
+```
 
 Open XWB cycle
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0xC0000000
 Written 0xC0000000; readback 0x80000000
+```
 
 Write some value to LM32-USER-RAM (by default pcimem does also readback)
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource1 0x0 w 0xc007babe
 Written 0xC007BABE; readback 0xC007BABE
+```
 
 Close XWB cycle
+
+```
 [root@ftrn-test-box pcie-wb]# pcimem /sys/bus/pci/devices/0000:02:00.0/resource0 0x0 w 0x40000000
 Written 0x40000000; readback 0x       0
- 
-
+``` 
 
 To check functionality of the eb_pci_slave complete EB packet needs to be written to FPGA. For that use scripts in folder
 
+```
 ./debug/scripts
-
+```
 
 
 This far eb_pcie_slave and wisbone kernel mod was tested only with eb-read and eb-write. Next is to test it with with all eb-tools and Saftlib.
-
   
-  
-  
-[1] https://www.ohwr.org/project/etherbone-core/blob/master/hdl/eb_slave_core/eb_slave_top.vhd
-
-[2] https://www.ohwr.org/project/etherbone-core/blob/master/hdl/eb_usb_core/ez_usb.vhd [:eb_raw_slave:eb_slave_top]
-
-[3] https://www.ohwr.org/project/etherbone-core/blob/master/hdl/eb_master_core/eb_master_slave_wrapper.vhd [:eb_ethernet_slave:eb_slave_top]
