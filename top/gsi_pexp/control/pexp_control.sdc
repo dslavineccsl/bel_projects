@@ -1,4 +1,5 @@
-create_clock -name {clk_lvtio_i}        -period 10.000 [get_ports {clk_lvtio_i}       ]
+create_clock -name {clk_lvtio_i}        -period 10.000 [get_ports {clk_lvtio} ]
+
 
 derive_pll_clocks -create_base_clocks
 derive_clock_uncertainty
