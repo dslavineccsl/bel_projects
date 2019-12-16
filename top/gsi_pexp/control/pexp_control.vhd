@@ -6,10 +6,11 @@ library work;
 use work.monster_pkg.all;
 use work.altera_lvds_pkg.all;
 use work.ramsize_pkg.c_lm32_ramsizes;
+use work.altera_networks_pkg.all;
 
 entity pexp_control is
-  generic(
-    g_LOAD_SHIFT_REG_EN : boolean := false
+  generic( 
+    g_LOAD_SHIFT_REG_EN : boolean := true
   );
   port(
     -----------------------------------------
@@ -19,7 +20,8 @@ entity pexp_control is
     clk_125m_pllref_i : in std_logic; -- 125 MHz PLL reference - (clk_125m_wrpll_0  on sch)
     clk_125m_local_i  : in std_logic; -- local clk from 125Mhz oszillator (clk_osc_1  on sch)
     clk_sfp_ref_i     : in std_logic; -- SFP clk (clk_125m_wrpll_1 on sch)
-    clk_lvtio_i       : in std_logic; -- LEMO front panel input
+    clk_lvtio_p_i     : in std_logic; -- LEMO front panel clock input
+    clk_lvtio_n_i     : in std_logic; -- LEMO front panel clock input
 
 --    clk_osc_1_i         : in std_logic;  -- local clk from 100MHz or 125Mhz oscillator
 
@@ -151,6 +153,7 @@ end pexp_control;
 architecture rtl of pexp_control is
 
   constant c_HWT_EN_BIT : natural := 8;
+  constant c_IO_CLKIN_EN_BIT  : natural := 9;
 
   signal clk_sys       : std_logic;
   signal clk_200m      : std_logic;
@@ -161,7 +164,7 @@ architecture rtl of pexp_control is
   signal s_led_status         : std_logic_vector(6 downto 1);
   signal s_led_user           : std_logic_vector(8 downto 1);
 
-  signal s_gpio_out           : std_logic_vector(8 downto 0);
+  signal s_gpio_out           : std_logic_vector(9 downto 0);
   signal s_gpio_in            : std_logic_vector(9 downto 0);
 
   signal s_test_sel     : std_logic_vector(4 downto 0);
@@ -201,28 +204,33 @@ architecture rtl of pexp_control is
 
 
 
-  constant io_mapping_table : t_io_mapping_table_arg_array(0 to 23) :=
+  constant io_mapping_table : t_io_mapping_table_arg_array(0 to 24) :=
   (
   -- Name[11 Bytes], Special Purpose, SpecOut, SpecIn, Index, Direction,   Channel,  OutputEnable, Termination, Logic Level
-    ("LED1       ", IO_NONE,         false,   false,  0,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ), -- user LEDs
-    ("LED2       ", IO_NONE,         false,   false,  1,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
-    ("LED3       ", IO_NONE,         false,   false,  2,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
-    ("LED4       ", IO_NONE,         false,   false,  3,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
-    ("LED5       ", IO_NONE,         false,   false,  4,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
-    ("LED6       ", IO_NONE,         false,   false,  5,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
-    ("LED7       ", IO_NONE,         false,   false,  6,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
-    ("LED8       ", IO_NONE,         false,   false,  7,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
+    ("LED_USR1   ", IO_NONE,         false,   false,  0,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR2   ", IO_NONE,         false,   false,  1,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR3   ", IO_NONE,         false,   false,  2,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR4   ", IO_NONE,         false,   false,  3,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR5   ", IO_NONE,         false,   false,  4,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR6   ", IO_NONE,         false,   false,  5,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR7   ", IO_NONE,         false,   false,  6,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
+    ("LED_USR8   ", IO_NONE,         false,   false,  7,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL),
     ("HWT_EN     ", IO_NONE,         false,   false,  8,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ), -- enable HW test
-    ("HSF0       ", IO_NONE,         false,   false,  0,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- FPGA HEX switch
-    ("HSF1       ", IO_NONE,         false,   false,  1,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
-    ("HSF2       ", IO_NONE,         false,   false,  2,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
-    ("HSF3       ", IO_NONE,         false,   false,  3,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
-    ("HSP0       ", IO_NONE,         false,   false,  4,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- CPLD HEX switch
-    ("HSP1       ", IO_NONE,         false,   false,  5,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
-    ("HSP2       ", IO_NONE,         false,   false,  6,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
-    ("HSP3       ", IO_NONE,         false,   false,  7,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+    ("IO_CLKIN_EN", IO_NONE,         true ,   false,  9,     IO_OUTPUT,   IO_GPIO,  false,        false,       IO_TTL  ),
+
+    ("HSWF1      ", IO_NONE,         false,   false,  0,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- FPGA HEX switch
+    ("HSWF2      ", IO_NONE,         false,   false,  1,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+    ("HSWF3      ", IO_NONE,         false,   false,  2,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+    ("HSWF4      ", IO_NONE,         false,   false,  3,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+
+    ("HSWP1      ", IO_NONE,         false,   false,  4,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- CPLD HEX switch
+    ("HSWP2      ", IO_NONE,         false,   false,  5,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+    ("HSWP3      ", IO_NONE,         false,   false,  6,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+    ("HSWP4      ", IO_NONE,         false,   false,  7,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL),
+
     ("PBF        ", IO_NONE,         false,   false,  8,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- FPGA push button
-    ("PBC        ", IO_NONE,         false,   false,  9,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- CPLD push button
+    ("PBP        ", IO_NONE,         false,   false,  9,     IO_INPUT,    IO_GPIO,  false,        false,       IO_LVTTL), -- CPLD push button
+
     ("IO1        ", IO_NONE,         false,   false,  0,     IO_INOUTPUT, IO_LVDS,  true,         true,        IO_LVTTL), -- front panel IOs
     ("IO2        ", IO_NONE,         false,   false,  1,     IO_INOUTPUT, IO_LVDS,  true,         true,        IO_LVTTL),
     ("IO3        ", IO_NONE,         false,   false,  2,     IO_INOUTPUT, IO_LVDS,  true,         true,        IO_LVTTL),
@@ -264,7 +272,14 @@ architecture rtl of pexp_control is
   signal core_debug_out       : std_logic_vector(15 downto 0);
 
 
+  signal clk_lvtio                : std_logic;
+  signal clk_lvtio_global         : std_logic;
 
+  signal lvtio_clk_divider        : unsigned(27 downto 0);
+
+  signal ures_monster             : std_logic;
+ 
+  
 begin
 
   main : monster
@@ -275,7 +290,7 @@ begin
       g_lvds_inout        => 5,  -- 5 LEMOs at front panel
       g_lvds_in           => 0,
       g_lvds_out          => 0,
-      g_gpio_out          => 9,  -- 8 on-boards LEDs, internal HW test enable
+      g_gpio_out          => 10,  -- 8 on-boards LEDs, internal HW test enable, internal IO clk input enable
       g_gpio_in           => 10, -- FPGA button and HEX switch (1+4), CPLD button and HEX switch (1+4)
       g_fixed             => 0,
       g_lvds_invert       => false,
@@ -312,7 +327,7 @@ begin
       wr_dac_sclk_o          => wr_dac_sclk_o,
       wr_dac_din_o           => wr_dac_din_o,
       wr_ndac_cs_o           => wr_ndac_cs_o,
-      wr_ext_clk_i           => clk_lvtio_i,
+      wr_ext_clk_i           => '0',
 
       sfp_tx_disable_o       => sfp_tx_dis_o,
       sfp_tx_fault_i         => sfp_tx_fault_i,
@@ -378,7 +393,7 @@ begin
 
   -- button as gpio inputs
   s_gpio_in(8) <= not pbs_f_i; -- FPGA push button
-  s_gpio_in(9) <= con(5);      -- CPLD push button
+  s_gpio_in(9) <= con(5);      -- CPLD push button (already inverted in CPLD)
 
 
   -- test mode select via hex switch or sw
@@ -391,7 +406,11 @@ begin
   dis_wr_o    <= '0';
   dis_rst_o   <= '1';
 
-  -- WR status LEDs
+  -----------------------------------------------------------
+  -- LEDs
+  -----------------------------------------------------------
+
+  -- WR status LEDs 
   s_dis_led_green <= s_gpio_out(4) when s_gpio_out(8)='1' else (    s_led_link_up and     s_led_track); -- green
   s_dis_led_red   <= s_gpio_out(5) when s_gpio_out(8)='1' else (not s_led_link_up                    ); -- red
   s_dis_led_blue  <= s_gpio_out(6) when s_gpio_out(8)='1' else (    s_led_link_up and not s_led_track); -- blue
@@ -462,6 +481,7 @@ begin
     lvtio_led_dir_o <= (others => '0')                  when ('0' & x"F"),   -- FPGA hex sw in position F, button not pressed, LED test
                        (others => '1')                  when ('1' & x"F"),   -- FPGA hex sw in position F, button     pressed, LED test
                         s_shift_reg_to_leds(9 downto 5) when ('0' & x"A"),   -- FPGA hex sw in position A, button not pressed, shift reg to leds
+                        std_logic_vector(lvtio_clk_divider(4 downto 0))   when ('0' & x"4"),   -- FPGA hex sw in position 4, button not pressed, lvtio clk divider
                         s_lvds_oe(4 downto 0)           when others;         -- driven by monster
 
   -- LVDS activity indicator BLUE LEDs (active hi)
@@ -469,6 +489,7 @@ begin
     lvtio_led_act_o <= (others => '0')                  when ('0' & x"F"),   -- FPGA hex sw in position F, button not pressed, LED test
                        (others => '1')                  when ('1' & x"F"),   -- FPGA hex sw in position F, button     pressed, LED test
                         s_shift_reg_to_leds(4 downto 0) when ('0' & x"A"),   -- FPGA hex sw in position A, button not pressed, shift reg to leds
+                        std_logic_vector(lvtio_clk_divider(27 downto 23))   when ('0' & x"4"),   -- FPGA hex sw in position 4, button not pressed, lvtio clk divider
                         s_lvds_led(4 downto 0)          when others;         -- driven by monster
 
   -----------------------------------------------------------
@@ -483,8 +504,35 @@ begin
 
 
   -- External white rabbit clock input enable (active low)
-  lvt_in_clk_en_n_o <= not(s_wr_ext_in);
+  lvt_in_clk_en_n_o <= not s_gpio_out(c_IO_CLKIN_EN_BIT);
 
+
+  ------------------------------------------------------------
+  -- IO5 clk input 
+  ------------------------------------------------------------
+  lvtio_clk_inbuf : altera_lvds_ibuf
+  generic map(
+    g_family  => c_family)
+  port map(
+    datain_b  => clk_lvtio_n_i,
+    datain    => clk_lvtio_p_i,
+    dataout   => clk_lvtio
+  );
+
+  lvtio_clk_buf : global_region
+  port map(
+    inclk  => clk_lvtio,
+    outclk => clk_lvtio_global
+  );
+
+  p_lvtio_clk_div: process(clk_lvtio_global)
+  begin 
+    if rising_edge(clk_lvtio_global) then
+      lvtio_clk_divider <= lvtio_clk_divider + 1;
+    else
+      lvtio_clk_divider <= lvtio_clk_divider ;
+    end if;
+  end process;
 
 
   gen_load_shift_reg_true: if g_LOAD_SHIFT_REG_EN = true generate
