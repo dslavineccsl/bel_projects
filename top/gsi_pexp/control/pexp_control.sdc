@@ -1,4 +1,4 @@
-create_clock -name {clk_lvtio_i}        -period 10.000 [get_ports {clk_lvtio} ]
+create_clock -name {clk_lvtio_p_i}        -period 10.000 [get_ports {clk_lvtio_p_i} ]
 
 
 derive_pll_clocks -create_base_clocks
@@ -7,7 +7,7 @@ derive_clock_uncertainty
 # Cut the clock domains from each other
 set_clock_groups -asynchronous                           \
  -group { altera_reserved_tck                          } \
- -group { clk_lvtio_i                                  } \
+ -group { clk_lvtio_p_i                                } \
  -group { clk_20m_vcxo_i    main|\dmtd_a5:dmtd_inst|*  } \
  -group { clk_125m_local_i  main|\sys_a5:sys_inst|*    } \
  -group { clk_sfp_ref_i     main|\ref_a5:ref_inst|*      \
