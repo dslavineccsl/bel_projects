@@ -756,7 +756,8 @@ set_instance_assignment -name GLOBAL_SIGNAL REGIONAL_CLOCK -to "monster:main|xwr
 set_instance_assignment -name GLOBAL_SIGNAL REGIONAL_CLOCK -to pcie_refclk_i*
 set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to clk_125m_local_i
 set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to clk_125m_pllref_i
-set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to clk_lvtio_i
+set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to clk_lvtio_n_i
+set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to clk_lvtio_p_i
 set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to lvtio_in_n_i[1]
 set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to lvtio_in_n_i[2]
 set_instance_assignment -name INPUT_TERMINATION DIFFERENTIAL -to lvtio_in_n_i[3]
@@ -863,7 +864,8 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to wr_ndac_cs_o[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to wr_ndac_cs_o[2]
 set_instance_assignment -name IO_STANDARD LVDS -to clk_125m_local_i
 set_instance_assignment -name IO_STANDARD LVDS -to clk_125m_pllref_i
-set_instance_assignment -name IO_STANDARD LVDS -to clk_lvtio_i
+set_instance_assignment -name IO_STANDARD LVDS -to clk_lvtio_n_i
+set_instance_assignment -name IO_STANDARD LVDS -to clk_lvtio_p_i
 set_instance_assignment -name IO_STANDARD LVDS -to clk_sfp_ref_i
 set_instance_assignment -name IO_STANDARD LVDS -to "clk_sfp_ref_i(n)"
 set_instance_assignment -name IO_STANDARD LVDS -to lvtio_in_n_i[1]
@@ -974,13 +976,13 @@ set_location_assignment PIN_AF7 -to wr_ndac_cs_o[2]
 set_location_assignment PIN_AF8 -to wr_ndac_cs_o[1]
 set_location_assignment PIN_B10 -to pe_snclk
 set_location_assignment PIN_B12 -to sfp_los_i
-set_location_assignment PIN_B16 -to clk_lvtio_i
+set_location_assignment PIN_B16 -to clk_lvtio_p_i
 set_location_assignment PIN_B1 -to hpw[7]
 set_location_assignment PIN_B6 -to lvtio_in_p_i[2]
 set_location_assignment PIN_B7 -to lvtio_out_p_o[2]
 set_location_assignment PIN_C10 -to pe_smdat
 set_location_assignment PIN_C12 -to sfp_tx_fault_i
-set_location_assignment PIN_C17 -to "clk_lvtio_i(n)"
+set_location_assignment PIN_C17 -to clk_lvtio_n_i
 set_location_assignment PIN_C1 -to con[1]
 set_location_assignment PIN_C22 -to "clk_125m_local_i(n)"
 set_location_assignment PIN_C23 -to clk_125m_local_i
