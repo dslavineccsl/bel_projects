@@ -622,7 +622,7 @@ begin
     hpw(1) <= clk_125m_local_i;
     hpw(2) <= clk_sfp_ref_i;
     hpw(6 downto 3) <= con;
-    hpw(7) <= clk_lvtio_global
+    hpw(7) <= clk_lvtio_global;
     hpw(12 downto 8) <= s_test_sel;
     hpw(13) <= con(5);
     hpw(14) <= s_test_sel(4);
